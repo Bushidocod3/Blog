@@ -105,7 +105,6 @@ class Feed extends Component {
     this.setState({
       editLoading: true
     });
-    // Set up data (with image!)
     let url = 'URL';
     if (this.state.editPost) {
       url = 'URL';
