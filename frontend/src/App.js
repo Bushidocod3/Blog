@@ -24,13 +24,11 @@ class App extends Component {
     error: null,
   };
 
-  componentDidMount() {
+  async componentDidMount() {
     const token = localStorage.getItem("token");
     const expiryDate = localStorage.getItem("expiryDate");
-    if (!token || !expiryDate) {
-      return;
-    }
-    if (new Date(expiryDate) <= new Date()) {
+
+    if (!token || !expiryDate || new Date(expiryDate) <= new Date()) {
       this.logoutHandler();
       return;
     }
@@ -56,95 +54,86 @@ class App extends Component {
     localStorage.removeItem("userId");
   };
 
-  loginHandler = (event, authData) => {
+  loginHandler = async (event, authData) => {
     event.preventDefault();
     this.setState({ authLoading: true });
-    fetch("http://localhost:8080/auth/login", {
-      method: 'POST',
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: authData.email,
-        password: authData.password,
-      })
-    })
-      .then((res) => {
-        if (res.status === 422) {
-          throw new Error("Validation failed.");
-        }
-        if (res.status !== 200 && res.status !== 201) {
-          console.log("Error!");
-          throw new Error("Could not authenticate you!");
-        }
-        return res.json();
-      })
-      .then((resData) => {
-        console.log(resData);
-        this.setState({
-          isAuth: true,
-          token: resData.token,
-          authLoading: false,
-          userId: resData.userId,
-        });
-        localStorage.setItem("token", resData.token);
-        localStorage.setItem("userId", resData.userId);
-        const remainingMilliseconds = 60 * 60 * 1000;
-        const expiryDate = new Date(
-          new Date().getTime() + remainingMilliseconds
-        );
-        localStorage.setItem("expiryDate", expiryDate.toISOString());
-        this.setAutoLogout(remainingMilliseconds);
-      })
-      .catch((err) => {
-        console.log(err);
-        this.setState({
-          isAuth: false,
-          authLoading: false,
-          error: err,
-        });
+    try {
+      const res = await fetch("http://localhost:8080/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authData.email,
+          password: authData.password,
+        }),
       });
+      if (res.status === 422) {
+        throw new Error("Validation failed.");
+      }
+      if (res.status !== 200 && res.status !== 201) {
+        console.log("Error!");
+        throw new Error("Could not authenticate you!");
+      }
+      const resData = await res.json();
+      this.setState({
+        isAuth: true,
+        token: resData.token,
+        authLoading: false,
+        userId: resData.userId,
+      });
+      localStorage.setItem("token", resData.token);
+      localStorage.setItem("userId", resData.userId);
+      const remainingMilliseconds = 60 * 60 * 1000;
+      const expiryDate = new Date(new Date().getTime() + remainingMilliseconds);
+      localStorage.setItem("expiryDate", expiryDate.toISOString());
+      this.setAutoLogout(remainingMilliseconds);
+    } catch (err) {
+      console.log(err);
+      this.setState({
+        isAuth: false,
+        authLoading: false,
+        error: err,
+      });
+    }
   };
 
-  signupHandler = (event, authData) => {
+  signupHandler = async (event, authData) => {
     event.preventDefault();
     this.setState({ authLoading: true });
-    fetch("http://localhost:8080/auth/signup", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: authData.singupForm.email.value,
-        password: authData.singupForm.password.value,
-        name: authData.singupForm.name.value,
-      }),
-    })
-      .then((res) => {
-        if (res.status === 422) {
-          throw new Error(
-            "Validation failed. Make sure the email address isn't used yet!"
-          );
-        }
-        if (res.status !== 200 && res.status !== 201) {
-          console.log("Error!");
-          throw new Error("Creating a user failed!");
-        }
-        return res.json();
-      })
-      .then((resData) => {
-        console.log(resData);
-        this.setState({ isAuth: false, authLoading: false });
-        this.props.history.replace("/");
-      })
-      .catch((err) => {
-        console.log(err);
-        this.setState({
-          isAuth: false,
-          authLoading: false,
-          error: err,
-        });
+    try {
+      const res = await fetch("http://localhost:8080/auth/signup", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: authData.signupForm.email.value,
+          password: authData.signupForm.password.value,
+          name: authData.signupForm.name.value,
+        }),
       });
+      if (res.status === 422) {
+        throw new Error(
+          "Validation failed. Make sure the email address isn't used yet!"
+        );
+      }
+      if (res.status !== 200 && res.status !== 201) {
+        console.log("Error!");
+        throw new Error("Creating a user failed!");
+      }
+      const resData = await res.json();
+      console.log(resData);
+      this.setState({ isAuth: false, authLoading: false });
+      this.props.history.replace("/");
+    } catch (err) {
+      console.log(err);
+      this.setState({
+        isAuth: false,
+        authLoading: false,
+        error: err,
+      });
+    }
   };
 
   setAutoLogout = (milliseconds) => {
