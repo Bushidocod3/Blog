@@ -1,4 +1,5 @@
 import React, { Component, Fragment } from "react";
+import openSocket from "socket.io-client";
 
 import Post from "../../components/Feed/Post/Post";
 import Button from "../../components/Button/Button";
@@ -37,6 +38,45 @@ class Feed extends Component {
       this.catchError(err);
     }
     this.loadPosts();
+    const socket = openSocket("http://localhost:8080");
+    socket.on("posts", (data) => {
+      if (data.action === "create") {
+        this.addPost(data.post);
+      } else if (data.action === 'update') {
+        this.updatePost(data.post); 
+      } else if (data.action === 'delete') {
+        this.loadPosts(); 
+      }
+    });
+  }
+
+  addPost = (post) => {
+    this.setState((prevState) => {
+      const updatedPosts = [...prevState.posts];
+      if (prevState.postPage === 1) {
+        if (prevState.posts.length >= 2) {
+          updatedPosts.pop();
+        }
+        updatedPosts.unshift(post);
+      }
+      return {
+        posts: updatedPosts,
+        totalPosts: prevState.totalPosts + 1,
+      };
+    });
+  };
+
+  updatePost = post => {
+    this.setState(prevState => {
+      const updatedPosts = [...prevState.posts];
+      const updatedPostIndex = updatedPosts.findIndex(p => p._id === post._id);
+      if (updatedPostIndex > -1) {
+        updatedPosts[updatedPostIndex] = post;
+      }
+      return {
+        posts: updatedPosts
+      };
+    });
   }
 
   loadPosts = async (direction) => {
@@ -114,25 +154,25 @@ class Feed extends Component {
   finishEditHandler = async (postData) => {
     this.setState({ editLoading: true });
     const formData = new FormData();
-    formData.append('title', postData.title);
-    formData.append('content', postData.content);
-    formData.append('image', postData.image);
+    formData.append("title", postData.title);
+    formData.append("content", postData.content);
+    formData.append("image", postData.image);
 
-    let url = 'http://localhost:8080/feed/post';
-    let method = 'POST';
+    let url = "http://localhost:8080/feed/post";
+    let method = "POST";
     if (this.state.editPost) {
       url = `http://localhost:8080/feed/post/${this.state.editPost._id}`;
-      method = 'PUT';
+      method = "PUT";
     }
 
     try {
       const response = await fetch(url, {
         method: method,
         body: formData,
-        headers: { Authorization: 'Bearer ' + this.props.token }
+        headers: { Authorization: "Bearer " + this.props.token },
       });
       if (![200, 201].includes(response.status)) {
-        throw new Error('Creating or editing a post failed!');
+        throw new Error("Creating or editing a post failed!");
       }
       const data = await response.json();
       const post = {
@@ -140,20 +180,22 @@ class Feed extends Component {
         title: data.post.title,
         content: data.post.content,
         creator: data.post.creator,
-        createdAt: data.post.createdAt
+        createdAt: data.post.createdAt,
       };
-      this.setState(prevState => {
-        let updatedPosts = [...prevState.posts];
-        if (prevState.editPost) {
-          const postIndex = prevState.posts.findIndex(p => p._id === prevState.editPost._id);
-          updatedPosts[postIndex] = post;
-        } else if (prevState.posts.length < 2) {
-          updatedPosts = prevState.posts.concat(post);
-        }
-        return { posts: updatedPosts, isEditing: false, editPost: null, editLoading: false };
+      this.setState((prevState) => {
+        return {
+          isEditing: false,
+          editPost: null,
+          editLoading: false,
+        };
       });
     } catch (error) {
-      this.setState({ isEditing: false, editPost: null, editLoading: false, error });
+      this.setState({
+        isEditing: false,
+        editPost: null,
+        editLoading: false,
+        error,
+      });
     }
   };
 
@@ -164,18 +206,18 @@ class Feed extends Component {
   deletePostHandler = async (postId) => {
     this.setState({ postsLoading: true });
     try {
-      const response = await fetch(`http://localhost:8080/feed/post/${postId}`, {
-        method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + this.props.token }
-      });
+      const response = await fetch(
+        `http://localhost:8080/feed/post/${postId}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: "Bearer " + this.props.token },
+        }
+      );
       if (![200, 201].includes(response.status)) {
-        throw new Error('Deleting a post failed!');
+        throw new Error("Deleting a post failed!");
       }
       await response.json();
-      this.setState(prevState => ({
-        posts: prevState.posts.filter(p => p._id !== postId),
-        postsLoading: false
-      }));
+      this.loadPosts(); 
     } catch (error) {
       this.setState({ postsLoading: false });
     }
